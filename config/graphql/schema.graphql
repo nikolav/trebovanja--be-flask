@@ -1,0 +1,326 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+scalar JsonData
+scalar JsonDocsTags
+scalar NumberReal
+
+#########
+## @types
+
+type Var {
+  id: ID!
+  name: String!
+  value: String
+}
+
+type StorageFileInfo {
+  id: ID!
+  file_id: String!
+  user_id: Int!
+  title: String!
+  description: String!
+  filename: String!
+  path: String!
+  size: Int!
+  mimetype: String!
+  public: Boolean!
+  created_at: String!
+  updated_at: String!
+}
+
+type StorageFileRemovedDataInfo {
+  file_id: String!
+  user_id: Int!
+  title: String!
+  description: String!
+  filename: String!
+  path: String!
+  size: Int!
+  mimetype: String!
+  public: Boolean!
+}
+
+type StorageFileRemovedInfoSuccess {
+  id: ID!
+  data: StorageFileRemovedDataInfo!
+  created_at: String!
+  updated_at: String!
+}
+
+type StorageFileRemovedInfo {
+  error: String
+  file: StorageFileRemovedInfoSuccess
+}
+
+type User {
+  id: ID!
+  email: String!
+  password: String!
+  profile: JsonData
+  key: String
+  tags: [String!]
+  is_approved: Boolean
+  is_manager: Boolean
+  is_admin: Boolean
+  is_external: Boolean
+  is_available: Boolean
+  groups: [String!]
+  email_verified: Boolean
+  created_at: String
+  updated_at: String
+}
+
+type ResultMailStatus {
+  error: String
+  status: String
+}
+
+type Asset {
+  id: ID!
+  name: String!
+  code: String
+  type: String
+  location: String
+  status: String
+  condition: String
+  data: JsonData
+  notes: String
+  key: String
+  author_id: Int
+
+  tags: [String!]
+  users: [User!]
+  author: User
+  docs: [JsonData!]
+
+  created_at: String
+  updated_at: String
+}
+
+type Docs {
+  id: ID!
+  key: String!
+  data: JsonData!
+
+  asset: Asset
+  user: User
+  tags: [String]
+
+  created_at: String
+  updated_at: String
+}
+
+type Orders {
+  id: ID!
+  key: String
+  status: String
+  data: JsonData
+  notes: String
+
+  author_id: ID
+  site_id: ID
+
+  author: User
+  site: Asset
+  tags: [String]
+  products: [Asset!]
+
+  created_at: String
+  updated_at: String
+}
+
+type ProductAmount {
+  amount: Int!
+  product: Asset!
+}
+type OrderItems {
+  order: Orders
+  items: [ProductAmount!]!
+}
+
+#########
+## @Query
+
+type Query {
+  # api --status
+  status: String!
+
+  # vars
+  vars: [Var!]!
+
+  # users
+  usersById(uid: ID!): User
+  usersOnly(uids: [ID!]!): [User!]!
+  users(skip_external: Boolean): [User!]!
+  # list users sharing groups with provided uids?
+  usersSharedGroups(uids: [ID!]): [User!]!
+  # list users with tags
+  usersTagged(tags: [String!]!, ALL: Boolean): [User!]!
+  # list users by search query .q
+  usersQ(q: String!, limit: Int): [User!]!
+  # list users in groups
+  usersByGroups(gids: [ID!]!, ALL: Boolean): [User!]!
+
+  # docs
+  docsByTopic(topic: String!, order: Int, search: JsonData): [JsonData!]!
+  docByDocId(doc_id: String!): JsonData!
+  tagsByDocId(id: ID!): [String!]!
+
+  # pdf, file.dl
+  pdfDownload(data: JsonData!): String!
+  dlFileB64(data: JsonData!): JsonData!
+
+  # storage
+  storageList: [StorageFileInfo!]!
+  storageListAll: [StorageFileInfo!]!
+
+  # assets, groups
+  groupsList(gids: [ID!]): [Asset!]!
+  groupsByUser(uid: ID!): [Asset!]!
+  assetsList(
+    aids: [ID!]
+    type: String
+    own: Boolean
+    aids_subs_only: [ID!]
+    aids_subs_type: String
+    children: Boolean
+    category: String
+    my_only: Boolean
+    ordered: String
+    blacklist_tags: [String!]
+    whitelist_tags: [String!]
+    search: JsonData
+  ): [Asset!]!
+  # list assets by search query .q
+  assetsSearchQ(q: String!, type: String, limit: Int): [Asset!]!
+  # assets:count
+  assetsCount(asset_type: String!, own: Boolean, category: String): JsonData!
+  # assets:forms
+  assetsFormsSubmissionsList(strategy: String, args: [JsonData!]): [Docs!]!
+  # assets:posts
+  assetsPostsReadable(
+    uids: [ID!]
+    pagination: JsonData
+    assets_rows: JsonData
+  ): [Asset!]!
+
+  # tags
+  tagsSearchTagLike(search: String!, prefix: String, attach: String): [String!]!
+
+  # cache:redis
+  cacheRedisGetCacheByKey(cache_key: String!): JsonData!
+
+  # docs:reports
+  reportsSearch(
+    query_strategy: String!
+    query_strategy_args: JsonData
+  ): JsonData!
+
+  # services:google
+  googleapisPlacesNearby(
+    location: JsonData!
+    next_page_token: String
+  ): JsonData!
+
+  # orders; assets:sites:ls-articles
+  assetsAssetsSitesOrders(sid: ID!): [Orders!]!
+  ordersProductsAmounts(ooid: ID!): OrderItems!
+
+  # collections --mongo
+  collectionsByTopic(topic: String!, config: JsonData!): JsonData!
+}
+
+############
+## @Mutation
+
+type Mutation {
+  # docs
+  docsUpsert(topic: String!, data: JsonData!, id: ID): JsonData!
+  docsRm(topic: String!, id: ID!): JsonData
+  docUpsert(
+    doc_id: String!
+    data: JsonData!
+    merge: Boolean!
+    shallow: Boolean!
+  ): JsonData!
+  docsRmById(id: ID!): JsonData
+
+  # manage docs/tags: id, { "@tag/foo": true, "@tag/bar": false }
+  docsTags(id: ID!, tags: JsonDocsTags!): JsonDocsTags!
+
+  # storage
+  storageRemoveFile(file_id: String!): StorageFileRemovedInfo
+
+  # accounts
+  accountsAdd(payload: JsonData!): JsonData!
+  accountsDrop(uid: ID!): JsonData!
+  accountsPoliciesManage(policies: JsonData!): JsonData!
+  accountsProfilePatch(uid: ID!, patch: JsonData!): JsonData!
+  accountsSendVerifyEmailLink(uid: ID!, url: String!): JsonData!
+  accountsVeifyEmail(data: JsonData!): JsonData!
+  usersTagsManage(tags: JsonData!): JsonData!
+
+  # mail
+  sendmail(
+    subject: String!
+    template: String!
+    data: JsonData!
+  ): ResultMailStatus!
+
+  # cloud_messaging
+  cloudMessagingPing(payload: JsonData): JsonData!
+  cloudMessagingNotifications(uids: [ID!]!, payload: JsonData!): JsonData!
+  cloudMessagingNotificationsChats(
+    cids: [ID!]!
+    payload: JsonData!
+    AND_THIS: Boolean
+  ): JsonData!
+
+  # communication
+  commsMessageMany(uids: [ID!]!, message: JsonData!): JsonData!
+  commsGroupMessageMany(gids: [ID!]!, message: JsonData!): JsonData!
+  # @delivery notify-teams-users-nearby
+  commsDeliveryStatusPublish(site: JsonData!): JsonData!
+
+  # viber
+  # https://developers.viber.com/docs/tools/channels-post-api/
+  viberChannelSetupSetWebhook(
+    url: String!
+    auth_token: String!
+    is_global: Boolean
+  ): JsonData!
+  viberChannelSetupChannelsDrop(channelNames: [String!]): JsonData!
+  viberSendTextMessage(payload: JsonData!): JsonData!
+
+  # assets, groups
+  assetsRemove(aids: [ID!]!): JsonData!
+  groupsGUConfigure(guConfig: JsonData!): JsonData!
+  assetsUpsert(fields: JsonData!, aid: ID, merge_field_data: Boolean): JsonData!
+  assetsAGConfig(ag_config: JsonData!, assets_type: String!): JsonData!
+  assetsManageTags(aid: ID!, config: JsonData!): JsonData!
+  # assetsPatchData
+  assetsPatchData(aid: ID!, patch: JsonData!): JsonData!
+  # assets:forms:reports
+  assetsFormsSubmission(data: JsonData!, fid: ID!, key: String): JsonData!
+  reportsDrop(ids: [ID!]!): JsonData!
+  reportsConfigurationTags(ids: [ID!]!, config: JsonData!): JsonData!
+
+  # cache:redis
+  cacheRedisCommit(
+    cache_key: String!
+    patch: JsonData
+    merge: Boolean
+  ): JsonData!
+
+  # orders
+  catalogOrderAdd(sid: ID!, items: JsonData!): JsonData!
+  catalogOrderRemove(ids: [ID!]!): JsonData!
+  catalogManageTags(id: ID!, config: JsonData!): JsonData!
+
+  # collections --mongo
+  collectionsUpsert(topic: String!, data: JsonData!, fields: [String!]!, id: ID): JsonData!
+  collectionsDrop(topic: String!, ids: [ID!]): JsonData!
+}
